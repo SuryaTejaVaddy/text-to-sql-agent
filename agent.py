@@ -6,7 +6,7 @@ from schema import SQLResponse
 
 load_dotenv()
 
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+genai.configure(api_key=os.environ["GEMINI_API_KEY_sql"])
 
 _model = genai.GenerativeModel(
     model_name="gemini-2.5-flash-preview-04-17",
