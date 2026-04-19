@@ -9,7 +9,7 @@ load_dotenv()
 genai.configure(api_key=os.environ["GEMINI_API_KEY_sql"])
 
 _model = genai.GenerativeModel(
-    model_name="gemini-2.5-flash-preview-04-17",
+    model_name="gemini-2.5-flash",
     generation_config=genai.GenerationConfig(
         response_mime_type="application/json",
         temperature=0.0,
