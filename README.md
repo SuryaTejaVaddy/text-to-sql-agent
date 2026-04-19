@@ -1,28 +1,22 @@
- Text-to-SQL Agent
+ # Text-to-SQL Agent
+  A natural language to SQL pipeline that lets you ask questions about your database in plain English using Google Gemini AI.
 
-  A natural language to SQL pipeline that lets you ask questions about your
-  PostgreSQL database using Google Gemini AI — no SQL knowledge required.
+  ## How It Works
+  - **Ask** — Type a question in plain English in the Gradio web UI
+  - **Generate** — Gemini 2.5 Flash converts your question into a SQL query using your live database schema
+  - **Execute** — The SQL runs against a PostgreSQL database and returns real results
+  - **Self-Correct** — If the SQL fails, the error is sent back to Gemini to fix it — up to 3 attempts automatically
 
-  How It Works
-
-  1. Ask — You type a question in plain English
-  2. Generate — Gemini reads your database schema and converts your question
-   into a SQL query
-  3. Execute — The query runs against your PostgreSQL database
-  4. Self-Correct — If the query fails, the error is sent back to Gemini and
-   it retries up to 3 times
-
-  Prerequisites
-
-  - Python 3.10+
-  - A Gemini API key from aistudio.google.com (free tier)
-  - A running PostgreSQL database (local or hosted on Neon.tech)
+  ## Prerequisites
+  - Python 3.12+
+  - A Gemini API key from [aistudio.google.com](https://aistudio.google.com) (free tier)
+  - A Neon PostgreSQL database from [neon.tech](https://neon.tech) (free tier)
   - GitHub Codespaces (recommended) or local Python environment
 
-  Setup
+  ## Setup
 
-  1. Clone the Repository
-
+  ### 1. Clone the Repository
+  ```bash
   git clone https://github.com/SuryaTejaVaddy/text-to-sql-agent.git
   cd text-to-sql-agent
 
@@ -34,111 +28,134 @@
 
   Option A — GitHub Codespaces (recommended):
 
-  Go to your GitHub repository → Settings → Secrets and variables →
-  Codespaces → New secret:
+  Go to your GitHub repository → Settings → Secrets and variables → Codespaces → New secret:
 
-  ┌────────────────┬───────────────────────────────────┐
-  │      Name      │               Value               │
-  ├────────────────┼───────────────────────────────────┤
-  │ GEMINI_API_KEY │ your Gemini API key               │
-  ├────────────────┼───────────────────────────────────┤
-  │ DATABASE_URL   │ your PostgreSQL connection string │
-  └────────────────┴───────────────────────────────────┘
+  ┌────────────────────┬─────────────────────────────┐
+  │        Name        │            Value            │
+  ├────────────────────┼─────────────────────────────┤
+  │ GEMINI_API_KEY_sql │ Your Gemini API key         │
+  ├────────────────────┼─────────────────────────────┤
+  │ DATABASE_URL       │ Your Neon connection string │
+  └────────────────────┴─────────────────────────────┘
 
-  Then restart your Codespace. If keys don't load automatically, run:
-  export GEMINI_API_KEY="your-api-key-here"
-  export DATABASE_URL="postgresql://user:password@host/dbname"
+  Then restart your Codespace. If the keys don't load automatically, run:
+  export GEMINI_API_KEY_sql="your-api-key-here"
+  export DATABASE_URL="your-neon-connection-string-here"
 
   Option B — Local .env file:
-  echo 'GEMINI_API_KEY=your-api-key-here' > .env
-  echo 'DATABASE_URL=postgresql://user:password@host/dbname' >> .env
+  echo 'GEMINI_API_KEY_sql=your-api-key-here' > .env
+  echo 'DATABASE_URL=your-neon-connection-string-here' >> .env
 
   Running the App
 
-  Step 1 — Load sample data (optional)
+  Step 1 — Load the Northwind Database
 
-  If you don't have a database yet, load the Northwind sample dataset
-  (customers, orders, products):
+  Run this once to populate your Neon database with sample data (replace with your connection string):
   python -c "
   import psycopg2, urllib.request
-  url = 'https://raw.githubusercontent.com/pthom/northwind_psql/master/north
-  wind.sql'
+  url = 'https://raw.githubusercontent.com/pthom/northwind_psql/master/northwind.sql'
   sql = urllib.request.urlopen(url).read().decode()
-  conn = psycopg2.connect('YOUR_DATABASE_URL_HERE')
+  conn = psycopg2.connect('YOUR_NEON_CONNECTION_STRING_HERE')
   conn.autocommit = True
-  conn.cursor().execute(sql)
+  cur = conn.cursor()
+  cur.execute(sql)
   conn.close()
   print('Done!')
   "
 
-  Step 2 — Start the app
+  You should see:
+  Done!
+
+  Verify the data loaded:
+  python -c "
+  import psycopg2
+  conn = psycopg2.connect('YOUR_NEON_CONNECTION_STRING_HERE')
+  cur = conn.cursor()
+  cur.execute('SELECT COUNT(*) FROM customers')
+  print('Customers:', cur.fetchone()[0])
+  cur.execute('SELECT COUNT(*) FROM orders')
+  print('Orders:', cur.fetchone()[0])
+  conn.close()
+  "
+
+  Expected output:
+  Customers: 91
+  Orders: 830
+
+  Step 2 — Start the App
 
   python app.py
-  Open your browser and go to http://localhost:7860
 
-  Step 3 — Ask a question
+  Click Open in Browser when the popup appears on port 7860.
 
-  Type a question like:
+  Step 3 — Ask a Question
+
+  Type any question about the data, for example:
   Show me the top 5 customers by total order value
-  Click Run Query. You'll see the generated SQL and a results table below
-  it.
+
+  You will see the generated SQL and the results table:
+  SELECT c.company_name, SUM(od.unit_price * od.quantity * (1 - od.discount)) AS total_order_value
+  FROM customers AS c
+  JOIN orders AS o ON c.customer_id = o.customer_id
+  JOIN order_details AS od ON o.order_id = od.order_id
+  GROUP BY c.company_name
+  ORDER BY total_order_value DESC
+  LIMIT 5;
+
+  (resolved in 1 attempt(s))
 
   Example Questions
 
-  Which products have never been ordered?
-  List all employees and how many orders they handled
-  What is the average freight cost per country?
-  Show all orders placed in 1997
-
-  Project Structure
-
-  text-to-sql-agent/
-  ├── app.py            # Gradio web UI — the entry point
-  ├── agent.py          # Sends question + schema to Gemini, returns SQL
-  ├── self_correct.py   # Retry loop — retries up to 3 times on failure
-  ├── db.py             # PostgreSQL connection, query execution, schema
-  reader
-  ├── schema.py         # Validates that AI only returns SELECT queries
-  └── requirements.txt  # Python dependencies
+  ┌─────────────────────────────────────────────────────┬────────────────────┐
+  │                      Question                       │   What It Tests    │
+  ├─────────────────────────────────────────────────────┼────────────────────┤
+  │ Show me the top 5 customers by total order value    │ JOIN + aggregation │
+  ├─────────────────────────────────────────────────────┼────────────────────┤
+  │ Which products have never been ordered?             │ LEFT JOIN / NOT IN │
+  ├─────────────────────────────────────────────────────┼────────────────────┤
+  │ List all employees and how many orders they handled │ GROUP BY           │
+  ├─────────────────────────────────────────────────────┼────────────────────┤
+  │ What is the average freight cost per country?       │ AVG + GROUP BY     │
+  ├─────────────────────────────────────────────────────┼────────────────────┤
+  │ Show all orders placed in 1997                      │ Date filtering     │
+  └─────────────────────────────────────────────────────┴────────────────────┘
 
   Configuration
 
   Edit agent.py to change defaults:
 
-  ┌──────────────┬────────────────────────────────┬──────────────────────┐
-  │   Setting    │            Default             │     Description      │
-  ├──────────────┼────────────────────────────────┼──────────────────────┤
-  │ model_name   │ gemini-2.5-flash-preview-04-17 │ Gemini model used    │
-  │              │                                │ for generation       │
-  ├──────────────┼────────────────────────────────┼──────────────────────┤
-  │              │                                │ Lower = more         │
-  │ temperature  │ 0.0                            │ deterministic SQL    │
-  │              │                                │ output               │
-  ├──────────────┼────────────────────────────────┼──────────────────────┤
-  │              │                                │ Max retries if SQL   │
-  │ MAX_ATTEMPTS │ 3                              │ fails (in            │
-  │              │                                │ self_correct.py)     │
-  └──────────────┴────────────────────────────────┴──────────────────────┘
+  ┌──────────────┬──────────────────┬───────────────────────────────────────┐
+  │   Setting    │     Default      │              Description              │
+  ├──────────────┼──────────────────┼───────────────────────────────────────┤
+  │ model_name   │ gemini-2.5-flash │ Gemini model used for SQL generation  │
+  ├──────────────┼──────────────────┼───────────────────────────────────────┤
+  │ temperature  │ 0.0              │ Lower = more deterministic SQL output │
+  ├──────────────┼──────────────────┼───────────────────────────────────────┤
+  │ MAX_ATTEMPTS │ 3                │ Max retries if SQL fails              │
+  └──────────────┴──────────────────┴───────────────────────────────────────┘
 
-  Safety
+  Project Structure
 
-  The agent only allows SELECT queries. Any AI-generated query that tries to
-   insert, update, or delete data is automatically rejected before it
-  reaches the database.
+  text-to-sql-agent/
+  ├── app.py            # Gradio web UI
+  ├── agent.py          # Gemini 2.5 Flash prompt + response parsing
+  ├── schema.py         # Pydantic model — enforces SELECT-only queries
+  ├── db.py             # PostgreSQL connection + schema introspection
+  ├── self_correct.py   # Retry loop with error feedback to the model
+  ├── requirements.txt  # Python dependencies
+  └── .env.example      # API key template
 
   Troubleshooting
 
-  KeyError: GEMINI_API_KEY
-  export GEMINI_API_KEY="your-key-here"
+  KeyError: GEMINI_API_KEY_sql
+  export GEMINI_API_KEY_sql="your-key-here"
 
-  OperationalError on database connection
-  Check your DATABASE_URL format:
-  postgresql://username:password@host:5432/dbname
+  429 RESOURCE_EXHAUSTED with limit: 0
+  Your API key's project doesn't have free tier access. Create a new key at https://aistudio.google.com using Create API key in new project.
 
-  429 RESOURCE_EXHAUSTED
-  Your API key's project doesn't have free tier access. Create a new key at
-  aistudio.google.com using "Create API key in new project".
-
-  SQL keeps failing after 3 attempts
-  Try rephrasing your question to be more specific, or check that your
-  database has the tables you're asking about.
+  404 model not found
+  Run this to see available models for your key:
+  python -c "import google.generativeai as genai; import os; genai.configure(api_key=os.environ['GEMINI_API_KEY_sql']); [print(m.name) for m in
+  genai.list_models() if 'generateContent' in m.supported_generation_methods]"
+  relation does not exist
+  The Northwind data was not loaded. Re-run the Step 1 loading command.
