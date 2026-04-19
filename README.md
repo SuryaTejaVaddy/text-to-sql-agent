@@ -172,16 +172,15 @@ Edit `agent.py` to change defaults:
 
 ## Project Structure
 
-```
 text-to-sql-agent/
-├── app.py            # Gradio web UI
-├── agent.py          # Gemini 2.5 Flash prompt + response parsing
-├── schema.py         # Pydantic model — enforces SELECT-only queries
-├── db.py             # PostgreSQL connection + schema introspection
-├── self_correct.py   # Retry loop with error feedback to the model
-├── requirements.txt  # Python dependencies
-└── .env.example      # API key template
-```
+  - `app.py` — Gradio web UI
+  - `agent.py` — Gemini 2.5 Flash prompt + response parsing
+  - `schema.py` — Pydantic model — enforces SELECT-only queries
+  - `db.py` — PostgreSQL connection + schema introspection
+  - `self_correct.py` — Retry loop with error feedback to the model
+  - `requirements.txt` — Python dependencies
+  - `.env.example` — API key template
+
 
 ---
 
